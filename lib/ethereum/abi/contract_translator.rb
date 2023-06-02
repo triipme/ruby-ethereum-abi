@@ -73,7 +73,7 @@ module Ethereum
         raise ValueError, "Unknown function #{name}" unless function_data.include?(name)
 
         desc = function_data[name]
-        func_id = Utils.zpad(Utils.encode_int(desc[:prefix]), 4)
+        func_id = ::Ethereum::Base::Utils.zpad(::Ethereum::Base::Utils.encode_int(desc[:prefix]), 4)
         calldata = ABI.encode_abi desc[:encode_types], args
 
         "#{func_id}#{calldata}"
@@ -130,7 +130,7 @@ module Ethereum
         c1, c2 = 0, 0
         names.each_with_index do |n, i|
           if indexed[i].true?
-            topic_bytes = Utils.zpad_int log.topics[c1+1]
+            topic_bytes = ::Ethereum::Base::Utils.zpad_int log.topics[c1+1]
             o[n] = ABI.decode_primitive_type ABI::Type.parse(indexed_types[c1]), topic_bytes
             c1 += 1
           else
@@ -146,11 +146,11 @@ module Ethereum
       end
 
       def method_id(name, encode_types)
-        Utils.big_endian_to_int Utils.keccak256(get_sig(name, encode_types))[0,4]
+        ::Ethereum::Base::Utils.big_endian_to_int ::Ethereum::Base::Utils.keccak256(get_sig(name, encode_types))[0,4]
       end
 
       def event_id(name, encode_types)
-        Utils.big_endian_to_int Utils.keccak256(get_sig(name, encode_types))
+        ::Ethereum::Base::Utils.big_endian_to_int ::Ethereum::Base::Utils.keccak256(get_sig(name, encode_types))
       end
 
       private

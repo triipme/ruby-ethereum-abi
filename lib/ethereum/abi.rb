@@ -59,7 +59,7 @@ module Ethereum
         raise ArgumentError, "arg must be a string" unless arg.instance_of?(String)
 
         size = encode_type Type.size_type, arg.size
-        padding = BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
+        padding = BYTE_ZERO * (::Ethereum::Base::Utils.ceil32(arg.size) - arg.size)
 
         "#{size}#{arg}#{padding}"
       elsif type.dynamic?
@@ -100,34 +100,34 @@ module Ethereum
         i = get_uint arg
 
         raise ValueOutOfBounds, arg unless i >= 0 && i < 2**real_size
-        Utils.zpad_int i
+        ::Ethereum::Base::Utils.zpad_int i
       when 'bool'
         raise ArgumentError, "arg is not bool: #{arg}" unless arg.instance_of?(TrueClass) || arg.instance_of?(FalseClass)
-        Utils.zpad_int(arg ? 1: 0)
+        ::Ethereum::Base::Utils.zpad_int(arg ? 1: 0)
       when 'int'
         real_size = type.sub.to_i
         i = get_int arg
 
         raise ValueOutOfBounds, arg unless i >= -2**(real_size-1) && i < 2**(real_size-1)
-        Utils.zpad_int(i % 2**type.sub.to_i)
+        ::Ethereum::Base::Utils.zpad_int(i % 2**type.sub.to_i)
       when 'ureal', 'ufixed'
         high, low = type.sub.split('x').map(&:to_i)
 
         raise ValueOutOfBounds, arg unless arg >= 0 && arg < 2**high
-        Utils.zpad_int((arg * 2**low).to_i)
+        ::Ethereum::Base::Utils.zpad_int((arg * 2**low).to_i)
       when 'real', 'fixed'
         high, low = type.sub.split('x').map(&:to_i)
 
         raise ValueOutOfBounds, arg unless arg >= -2**(high - 1) && arg < 2**(high - 1)
 
         i = (arg * 2**low).to_i
-        Utils.zpad_int(i % 2**(high+low))
+        ::Ethereum::Base::Utils.zpad_int(i % 2**(high+low))
       when 'string', 'bytes'
         raise EncodingError, "Expecting string: #{arg}" unless arg.instance_of?(String)
 
         if type.sub.empty? # variable length type
-          size = Utils.zpad_int arg.size
-          padding = BYTE_ZERO * (Utils.ceil32(arg.size) - arg.size)
+          size = ::Ethereum::Base::Utils.zpad_int arg.size
+          padding = BYTE_ZERO * (::Ethereum::Base::Utils.ceil32(arg.size) - arg.size)
           "#{size}#{arg}#{padding}"
         else # fixed length type
           raise ValueOutOfBounds, arg unless arg.size <= type.sub.to_i
@@ -140,23 +140,23 @@ module Ethereum
         raise EncodingError, "too long: #{arg}" unless size > 0 && size <= 32
 
         if arg.is_a?(Integer)
-          Utils.zpad_int(arg)
+          ::Ethereum::Base::Utils.zpad_int(arg)
         elsif arg.size == size
-          Utils.zpad arg, 32
+          ::Ethereum::Base::Utils.zpad arg, 32
         elsif arg.size == size * 2
-          Utils.zpad_hex arg
+          ::Ethereum::Base::Utils.zpad_hex arg
         else
           raise EncodingError, "Could not parse hash: #{arg}"
         end
       when 'address'
         if arg.is_a?(Integer)
-          Utils.zpad_int arg
+          ::Ethereum::Base::Utils.zpad_int arg
         elsif arg.size == 20
-          Utils.zpad arg, 32
+          ::Ethereum::Base::Utils.zpad arg, 32
         elsif arg.size == 40
-          Utils.zpad_hex arg
+          ::Ethereum::Base::Utils.zpad_hex arg
         elsif arg.size == 42 && arg[0,2] == '0x'
-          Utils.zpad_hex arg[2..-1]
+          ::Ethereum::Base::Utils.zpad_hex arg[2..-1]
         else
           raise EncodingError, "Could not parse address: #{arg}"
         end
@@ -180,7 +180,7 @@ module Ethereum
         # If a type is static, grab the data directly, otherwise record its
         # start position
         if t.dynamic?
-          start_positions[i] = Utils.big_endian_to_int(data[pos, 32])
+          start_positions[i] = ::Ethereum::Base::Utils.big_endian_to_int(data[pos, 32])
 
           j = i - 1
           while j >= 0 && start_positions[j].nil?
@@ -218,20 +218,20 @@ module Ethereum
 
     def decode_type(type, arg)
       if %w(string bytes).include?(type.base) && type.sub.empty?
-        l = Utils.big_endian_to_int arg[0,32]
+        l = ::Ethereum::Base::Utils.big_endian_to_int arg[0,32]
         data = arg[32..-1]
 
-        raise DecodingError, "Wrong data size for string/bytes object" unless data.size == Utils.ceil32(l)
+        raise DecodingError, "Wrong data size for string/bytes object" unless data.size == ::Ethereum::Base::Utils.ceil32(l)
 
         data[0, l]
       elsif type.dynamic?
-        l = Utils.big_endian_to_int arg[0,32]
+        l = ::Ethereum::Base::Utils.big_endian_to_int arg[0,32]
         subtype = type.subtype
 
         if subtype.dynamic?
           raise DecodingError, "Not enough data for head" unless arg.size >= 32 + 32*l
 
-          start_positions = (1..l).map {|i| Utils.big_endian_to_int arg[32*i, 32] }
+          start_positions = (1..l).map {|i| ::Ethereum::Base::Utils.big_endian_to_int arg[32*i, 32] }
           start_positions.push arg.size
 
           outputs = (0...l).map {|i| arg[start_positions[i]...start_positions[i+1]] }
@@ -253,10 +253,10 @@ module Ethereum
     def decode_primitive_type(type, data)
       case type.base
       when 'address'
-        Utils.encode_hex data[12..-1]
+        ::Ethereum::Base::Utils.encode_hex data[12..-1]
       when 'string', 'bytes'
         if type.sub.empty? # dynamic
-          size = Utils.big_endian_to_int data[0,32]
+          size = ::Ethereum::Base::Utils.big_endian_to_int data[0,32]
           data[32..-1][0,size]
         else # fixed
           data[0, type.sub.to_i]
@@ -264,16 +264,16 @@ module Ethereum
       when 'hash'
         data[(32 - type.sub.to_i), type.sub.to_i]
       when 'uint'
-        Utils.big_endian_to_int data
+        ::Ethereum::Base::Utils.big_endian_to_int data
       when 'int'
-        u = Utils.big_endian_to_int data
+        u = ::Ethereum::Base::Utils.big_endian_to_int data
         u >= 2**(type.sub.to_i-1) ? (u - 2**type.sub.to_i) : u
       when 'ureal', 'ufixed'
         high, low = type.sub.split('x').map(&:to_i)
-        Utils.big_endian_to_int(data) * 1.0 / 2**low
+        ::Ethereum::Base::Utils.big_endian_to_int(data) * 1.0 / 2**low
       when 'real', 'fixed'
         high, low = type.sub.split('x').map(&:to_i)
-        u = Utils.big_endian_to_int data
+        u = ::Ethereum::Base::Utils.big_endian_to_int data
         i = u >= 2**(high+low-1) ? (u - 2**(high+low)) : u
         i * 1.0 / 2**low
       when 'bool'
@@ -292,9 +292,9 @@ module Ethereum
         n
       when String
         if n.size == 40
-          Utils.big_endian_to_int Utils.decode_hex(n)
+          ::Ethereum::Base::Utils.big_endian_to_int ::Ethereum::Base::Utils.decode_hex(n)
         elsif n.size <= 32
-          Utils.big_endian_to_int n
+          ::Ethereum::Base::Utils.big_endian_to_int n
         else
           raise EncodingError, "String too long: #{n}"
         end
@@ -314,9 +314,9 @@ module Ethereum
         n
       when String
         if n.size == 40
-          i = Utils.big_endian_to_int Utils.decode_hex(n)
+          i = ::Ethereum::Base::Utils.big_endian_to_int ::Ethereum::Base::Utils.decode_hex(n)
         elsif n.size <= 32
-          i = Utils.big_endian_to_int n
+          i = ::Ethereum::Base::Utils.big_endian_to_int n
         else
           raise EncodingError, "String too long: #{n}"
         end
